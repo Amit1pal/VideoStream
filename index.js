@@ -7,7 +7,7 @@ import fs from "fs"
 import { exec } from "child_process"
 import { error } from "console"
 import { stderr, stdout } from "process"
-
+import mysql from 'mysql';
 const app= express();
 //multer middleware
 const storage = multer.diskStorage({
@@ -62,6 +62,35 @@ app.post("/upload",upload.single('file'),function(req,res){
     const ffmpegCommand = `ffmpeg -i ${videoPath} -codec:v libx264 -codec:a aac -hls_time 10 -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}
 
 `;
+//using sql to store data
+const connection = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'videostream'
+  });
+  connection.connect((err) => {
+    if (err) {
+        console.error('Error connecting to database:', err);
+        return;
+    }
+    console.log('Connected to database');
+
+    // SQL query to insert data into the database
+    const sql = 'INSERT INTO videourls (videourl, lessonid) VALUES (?, ?)';
+    const values = [lessonId, `http://localhost:8000/uploads/courses/${lessonId}/index.m3u8`];
+
+    connection.query(sql, values, (err, result) => {
+        if (err) {
+            console.error('Error inserting data:', err);
+            return;
+        }
+        console.log('Data inserted successfully');
+    });
+
+    // Close the database connection after executing the query
+    connection.end();
+});
 //no queue ,not to be used in production
 exec(ffmpegCommand,(error,stdout,stderr)=>{
     if (error){
